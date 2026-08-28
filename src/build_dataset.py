@@ -1,48 +1,43 @@
-"""Build the historical CourtVision modeling table from public-data CSV inputs."""
+"""Build the model-ready historical CourtVision dataset."""
+from __future__ import annotations
+
+import argparse
 from pathlib import Path
+import sqlite3
 import pandas as pd
-from features import add_features, FEATURES
 
-ROOT = Path(__file__).resolve().parents[1]
-RAW = ROOT / "data" / "raw"
-PROCESSED = ROOT / "data" / "processed"
+from features import MODEL_FEATURES, early_career_value, engineer_features
 
 
-def normalize_name(s: pd.Series) -> pd.Series:
-    return (s.astype(str).str.lower().str.replace(r"[^a-z0-9 ]", "", regex=True)
-            .str.replace(r"\s+", " ", regex=True).str.strip())
+def build_dataset(college_path: Path, outcomes_path: Path) -> pd.DataFrame:
+    college = engineer_features(pd.read_csv(college_path))
+    outcomes = pd.read_csv(outcomes_path)
+    if "player" not in outcomes:
+        raise ValueError("NBA outcomes are missing required column: player")
+    outcomes = outcomes.copy()
+    outcomes["nba_value"] = early_career_value(outcomes)
+    merged = college.merge(outcomes, on="player", how="inner", validate="many_to_one")
+    if merged.empty:
+        raise ValueError("No player names matched between college and NBA outcome files")
+    columns = [c for c in ["player", "season", "school", "conference", "draft_pick", "class_year"] if c in merged]
+    return merged[columns + MODEL_FEATURES + ["nba_value"]]
 
 
 def main() -> None:
-    college_path = RAW / "college_players.csv"
-    nba_path = RAW / "nba_outcomes.csv"
-    if not college_path.exists() or not nba_path.exists():
-        raise FileNotFoundError(
-            "Add data/raw/college_players.csv and data/raw/nba_outcomes.csv. "
-            "See README.md for the required schemas."
-        )
-
-    college = pd.read_csv(college_path)
-    nba = pd.read_csv(nba_path)
-    college["player_key"] = normalize_name(college["player"])
-    nba["player_key"] = normalize_name(nba["player"])
-
-    college = add_features(college)
-    # Transparent early-career outcome index; weights are configurable.
-    nba["nba_value"] = (
-        0.002 * nba["nba_minutes"].fillna(0)
-        + 1.5 * nba["nba_ws"].fillna(0)
-        + 0.75 * nba["nba_bpm"].fillna(0)
-    )
-    keep_nba = ["player_key", "nba_value", "nba_minutes", "nba_ws", "nba_bpm"]
-    model = college.merge(nba[keep_nba], on="player_key", how="inner")
-    cols = [c for c in ["player", "season", "school", "conference", "draft_pick"] if c in model] + FEATURES + ["nba_value"]
-    model = model[cols].replace([float("inf"), float("-inf")], pd.NA)
-
-    PROCESSED.mkdir(parents=True, exist_ok=True)
-    model.to_csv(PROCESSED / "model_data.csv", index=False)
-    print(f"Wrote {len(model):,} matched player rows to data/processed/model_data.csv")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--college", type=Path, default=Path("data/raw/college_players.csv"))
+    parser.add_argument("--outcomes", type=Path, default=Path("data/raw/nba_outcomes.csv"))
+    parser.add_argument("--output", type=Path, default=Path("data/processed/model_data.csv"))
+    parser.add_argument("--database", type=Path, default=Path("data/processed/courtvision.sqlite"))
+    args = parser.parse_args()
+    dataset = build_dataset(args.college, args.outcomes)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    dataset.to_csv(args.output, index=False)
+    with sqlite3.connect(args.database) as connection:
+        dataset.to_sql("prospects", connection, if_exists="replace", index=False)
+    print(f"Wrote {len(dataset):,} matched prospect seasons to {args.output}")
 
 
 if __name__ == "__main__":
     main()
+
