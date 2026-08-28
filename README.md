@@ -19,6 +19,14 @@ make demo
 
 The demo creates 160 fictional prospect histories, builds the modeling table, compares Elastic Net and Random Forest with cross-validation, evaluates the selected model on a held-out test set, produces 0–100 prospect grades, and finds historical-style statistical comparisons.
 
+Launch the interactive scouting workspace in VS Code or any local terminal:
+
+```bash
+streamlit run app.py
+```
+
+The dashboard includes model evaluation, an interactive prospect explorer, scouting-profile charts, rankings, and feature intelligence.
+
 ### Example results
 
 On the committed synthetic demo, Elastic Net was selected by cross-validation and achieved **0.52 MAE**, **0.72 RMSE**, and **0.66 R²** on the holdout set. These numbers demonstrate the pipeline—not real-world model performance.
