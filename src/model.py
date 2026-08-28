@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.ensemble import RandomForestRegressor
@@ -74,7 +76,7 @@ def main() -> None:
     importance_table(model).to_csv(args.outputs / "feature_importance.csv", index=False)
     (args.outputs / "model_metrics.json").write_text(json.dumps({"selected_model": winner, "models": metrics}, indent=2))
     actual, predicted = holdout
-    fig, ax = plt.subplots(figsize=(7, 6)); ax.scatter(actual, predicted, alpha=.7, color="#1f5a50"); lo, hi = min(actual.min(), predicted.min()), max(actual.max(), predicted.max()); ax.plot([lo, hi], [lo, hi], "--", color="#ef633c"); ax.set(title=f"CourtVision holdout — {winner}", xlabel="Actual value", ylabel="Predicted value"); fig.tight_layout(); fig.savefig(args.outputs / "predicted_vs_actual.png", dpi=180); plt.close(fig)
+    fig, ax = plt.subplots(figsize=(7, 6)); ax.scatter(actual, predicted, alpha=.7, color="#1f5a50"); lo, hi = min(actual.min(), predicted.min()), max(actual.max(), predicted.max()); ax.plot([lo, hi], [lo, hi], "--", color="#ef633c"); ax.set(title=f"CourtVision holdout - {winner}", xlabel="Actual value", ylabel="Predicted value"); fig.tight_layout(); fig.savefig(args.outputs / "predicted_vs_actual.png", dpi=180); plt.close(fig)
     top = rankings.nlargest(15, "model_grade").sort_values("model_grade")
     fig, ax = plt.subplots(figsize=(9, 7)); ax.barh(top["player"], top["model_grade"], color="#1f5a50"); ax.set(xlabel="Prospect grade", xlim=(0, 100), title="Top CourtVision prospects"); fig.tight_layout(); fig.savefig(args.outputs / "top_prospects.png", dpi=180); plt.close(fig)
     print(f"Selected {winner}; wrote rankings and evaluation artifacts to {args.outputs}")
