@@ -6,6 +6,30 @@ CourtVision is a portfolio-ready sports analytics project for evaluating basketb
 
 > **Decision question:** Which prospects have statistical profiles associated with NBA success, who is undervalued relative to draft position, and which historical players are the closest quantitative comparisons?
 
+[![tests](https://github.com/paarthkeswani-droid/CourtVision/actions/workflows/ci.yml/badge.svg)](https://github.com/paarthkeswani-droid/CourtVision/actions/workflows/ci.yml)
+
+## Portfolio demo
+
+CourtVision includes a deterministic **synthetic** dataset generator so anyone can review the complete workflow without downloading or redistributing proprietary player data.
+
+```bash
+pip install -r requirements.txt
+make demo
+```
+
+The demo creates 160 fictional prospect histories, builds the modeling table, compares Elastic Net and Random Forest with cross-validation, evaluates the selected model on a held-out test set, produces 0–100 prospect grades, and finds historical-style statistical comparisons.
+
+### Example results
+
+On the committed synthetic demo, Elastic Net was selected by cross-validation and achieved **0.52 MAE**, **0.72 RMSE**, and **0.66 R²** on the holdout set. These numbers demonstrate the pipeline—not real-world model performance.
+
+| Holdout evaluation | Prospect ranking output |
+|---|---|
+| ![Predicted versus actual synthetic outcomes](outputs/predicted_vs_actual.png) | ![Top synthetic prospect grades](outputs/top_prospects.png) |
+
+Explore the generated [model metrics](outputs/model_metrics.json), [feature importance](outputs/feature_importance.csv), [prospect rankings](outputs/prospect_rankings.csv), and [similarity results](outputs/similar_players.csv).
+
+
 ## What this project demonstrates
 
 - Python data engineering with `pandas` and `numpy`
