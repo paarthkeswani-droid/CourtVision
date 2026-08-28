@@ -1,38 +1,42 @@
-"""Find statistical historical comparisons for a CourtVision prospect."""
+"""Find historical statistical comparisons for a selected prospect."""
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
 import pandas as pd
 from sklearn.impute import SimpleImputer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
-from features import FEATURES
 
-ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / "data" / "processed" / "model_data.csv"
-OUT = ROOT / "outputs"
+from features import MODEL_FEATURES
+
+
+def find_similar_players(data: pd.DataFrame, player: str, top_n: int = 10) -> pd.DataFrame:
+    matches = data.index[data["player"].str.casefold() == player.casefold()].tolist()
+    if not matches:
+        raise ValueError(f"Player not found: {player}")
+    matrix = SimpleImputer(strategy="median").fit_transform(data[MODEL_FEATURES])
+    matrix = StandardScaler().fit_transform(matrix)
+    idx = matches[-1]
+    scores = cosine_similarity(matrix[[idx]], matrix).ravel()
+    result = data[[c for c in ["player", "season", "school", "draft_pick", "nba_value"] if c in data]].copy()
+    result["similarity"] = scores
+    result = result.drop(index=idx).sort_values("similarity", ascending=False).head(top_n)
+    return result.reset_index(drop=True)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--player", required=True)
-    parser.add_argument("--top", type=int, default=5)
+    parser.add_argument("--data", type=Path, default=Path("data/processed/model_data.csv"))
+    parser.add_argument("--output", type=Path, default=Path("outputs/similar_players.csv"))
+    parser.add_argument("--top", type=int, default=10)
     args = parser.parse_args()
+    result = find_similar_players(pd.read_csv(args.data), args.player, args.top)
+    args.output.parent.mkdir(parents=True, exist_ok=True); result.to_csv(args.output, index=False)
+    print(result.to_string(index=False))
 
-    df = pd.read_csv(DATA).reset_index(drop=True)
-    matches = df.index[df["player"].str.lower() == args.player.lower()].tolist()
-    if not matches:
-        raise ValueError(f"Player not found: {args.player}")
-    idx = matches[0]
-    X = SimpleImputer(strategy="median").fit_transform(df[FEATURES])
-    X = StandardScaler().fit_transform(X)
-    sims = cosine_similarity(X[idx:idx+1], X)[0]
-    order = sims.argsort()[::-1]
-    order = [i for i in order if i != idx][:args.top]
-    comps = df.loc[order, ["player"] + [c for c in ["season", "school", "nba_value"] if c in df]].copy()
-    comps["similarity"] = [round(float(sims[i]), 3) for i in order]
-    OUT.mkdir(exist_ok=True)
-    comps.to_csv(OUT / "similar_players.csv", index=False)
-    print(comps.to_string(index=False))
 
 if __name__ == "__main__":
     main()
+
